@@ -1,0 +1,40 @@
+import requests
+import json
+from tqdm import tqdm
+
+BASE_URL = "https://discourse.tds.iitm.ac.in"
+CATEGORY = "tools-in-data-science"  # example category slug
+OUTPUT_FILE = "content/posts.json"
+HEADERS = {"User-Agent": "TDS-Scraper/1.0"}
+
+def get_topic_ids():
+    topic_ids = []
+    for page in range(0, 10):  # adjust page range as needed
+        url = f"{BASE_URL}/c/{CATEGORY}.json?page={page}"
+        response = requests.get(url, headers=HEADERS)
+        if response.status_code != 200:
+            break
+        data = response.json()
+        topic_ids += [t["id"] for t in data.get("topic_list", {}).get("topics", [])]
+    return topic_ids
+
+def get_topic_posts(topic_id):
+    url = f"{BASE_URL}/t/{topic_id}.json"
+    response = requests.get(url, headers=HEADERS)
+    if response.status_code != 200:
+        return []
+    data = response.json()
+    return [p["cooked"] for p in data.get("post_stream", {}).get("posts", [])]
+
+def scrape_posts():
+    all_posts = []
+    topic_ids = get_topic_ids()
+    for tid in tqdm(topic_ids, desc="Scraping Discourse"):
+        posts = get_topic_posts(tid)
+        for p in posts:
+            all_posts.append({"text": p})
+    with open(OUTPUT_FILE, "w") as f:
+        json.dump(all_posts, f, indent=2)
+
+if __name__ == "__main__":
+    scrape_posts()
